@@ -6,32 +6,46 @@ y la elaboracion de los codigos que permitieron el correcto desarrollo del labor
 # TCP
 - Broker TCP
 
-    En este codigo se aprecia inicialmente, la definicion del puerto que se utilizara, el numero maximo de clientes permitidos y el maximo tamaño del buffer. Posteriormente se hace uso de la funcion DIE para imprimir error en caso de ocurrir algun fallo. Al iniciar, crea un socket y escucha en el puerto 8080, esperando conexiones entrantes. Cada cliente que se conecta , manda un carácter para indicar su rol: publisher si envia mensajes o subscriber si los recibe. En el codigo se crea una lista de todos los clientes, para que luego con la función select(), se detecte cuando llegan datos sin necesidad de usar varios hilos. Cuando un publisher envía un mensaje, este broker lo recibe y lo reenvía automáticamente a todos los subscribers conectados. No pasa nada si un cliente se desconecta, ya que este itera constantemente.
+    En este codigo se aprecia inicialmente, la definicion del puerto que se utilizara, el numero maximo de clientes permitidos y el maximo tamaño del buffer. Dentro de la función principal, el broker crea un socket TCP y lo configura para poder reutilizar el puerto si fuera necesario. Después, asocia el socket a la dirección IP local y al puerto mediante bind(), y comienza a escuchar nuevas conexiones con listen(). A partir de ese momento, el broker queda listo para aceptar clientes. El funcionamiento principal se da dentro de un bucle infinito, donde el broker utiliza la función select() para manejar múltiples conexiones al mismo tiempo. Esto le permite saber qué sockets tienen actividad (por ejemplo, si un cliente quiere enviar o recibir datos) sin bloquear el programa.
+
+    Cuando un cliente nuevo se conecta, el broker lo acepta y lee un caracter inicial que indica su rol. Inicialmente, esta "P" si es publisher o en segundo lugar, "S" si es subscriber. Luego de eso, el broker guarda esa información en un arreglo, junto con el identificador del cliente. Ahora bien, si un cliente publisher envía un mensaje, el broker lo recibe y lo reenvia a todos los clientes que sean subscribers. En cambio, si el mensaje proviene de un subscriber (lo cual no debería pasar), simplemente se ignora.
+
+
 
 - Subscriber TCP
 
-    Como bien se sabe, el subscriber es el cliente receptor del sistema, encargado de recibir los mensajes que luego seran distribuidos a traves del broker. inicialmente, se crea un socket que se conecta al broker en el puerto 8080 con IP 127.0.0.1. Una vez establecida la conexión, envía un carácter "S" para aclarar su rol como subscriber. Luego entra en un bucle permanente donde espera mensajes provenientes del broker usando la función recv(). Ahora bien, cada vez que llega un mensaje, lo muestra directamente en pantalla, como bien fue apreciado dentro en el flujo de trabajo. Cabe decir que si el broker cierra la conexion o se interrumpe la comunicación, el programa lo detecta, muestra un aviso y finaliza. En pocas palabras, este cliente permanece a la escucha de publicaciones, funcionando como un receptor PASIVO que muestra en tiempo real los mensajes enviados.
+    Como bien se sabe, el subscriber es el cliente receptor del sistema, encargado de recibir los mensajes que luego seran distribuidos a traves del broker. inicialmente, se incluyen las librerías necesarias para manejar la entrada y salida estándar, las funciones de red, la creación de sockets y la conexión mediante TCP. Luego se definen constantes como el puerto (8080) y el tamaño del buffer (1024 B), que se usara para recibir los mensajes. Para empzar, el programa determina la dirección IP del broker que en este caso es 127.0.0.1. Posteriormente, crea un socket TCP, que es el canal de comunicación confiable por el cual se intercambiarán los datos. Despues, el broker configura la dirección del servidor y establece la conexión usando connect().
+
+    Ahora bien, una vez establecida la conexión, el subscriber envía un solo caracter "S" para indicar al broker que su rol es el de suscriptor. De esta forma, el broker puede diferenciar entre los clientes que publican mensajes y los que reciben. Finalmente, el sistema entra en un bucle, donde espera mensajes que llegan desde el broker a través de la función recv(). Todo eso para que cada mensaje recibido se imprima en la consola. 
 
 - Publisher TCP
 
-    En este experimento, y como se sabe desde la parte de arquitectura, el publisher es el cliente emisor. Basicamente se conecta al broker TCP y manda los mensajes que este reenviará a los subscribers previamente definidos. Al ejecutarse, el programa crea un socket y se conecta a la dirección IP del broker, que por configuración dentro de la implementación, 127.0.0.1 en el puerto 8080. Una vez establecida la conexión, envía un carácter "P" para indicar su rol de publisher. Esta parte se definió previamente en la explicacion del broker. Luego entra en un bucle donde lee texto desde la consola y lo manda al broker usando TCP. Como se sabe, es gracias a este protocolo que los mensajes llegan de forma ordenada y segura. Ahora bien, una vez el usuario termina, el programa cierra la conexión y finaliza. 
+    En este experimento, y como se sabe desde la parte de arquitectura, el publisher es el cliente emisor. Basicamente se conecta al broker TCP y manda los mensajes que este reenviará a los subscribers previamente definidos. Al ejecutarse, el programa crea un socket y se conecta a la dirección IP del broker, que por configuración dentro de la implementación, 127.0.0.1 en el puerto 8080. Posteriormente, establece la conexión mediante connect(), lo que crea un canal de comunicación confiable con el broker. Una vez conectado, el publisher envía un caracter "P" para indicarle al broker que su rol es el de publicador. Después de esa identificación, el programa entra en un bucle continuo donde el usuario puede escribir mensajes directamente. Cada linea se manda al broker a traves del socket utilizando la función send(). Si ocurre algún error o el usuario termina la entrada, el programa finaliza sin problmas.
 
 
 # UDP
 - Broker UDP
 
-    En este caso, evidentemente el broker UDP cumple con la misma funcion que el de TCP, solo que esta vez cambia el protocolo. Inicialmente el programa crea un socket UDP y lo asocia al puerto 5000 para poder recibir mensajes de cualquier direccion. Cabe destacar que por problemas en la conexión se quiso probar el uso de este numero de puerto. Además, cabe destacar que a diferencia del TCP, aquí no hay una conexión establecida, sino que cada mensaje llega como un datagrama independiente. Para empezar el proceso, este entra en un ciclo continuo donde espera mensajes. Si recibe uno que comienza con la palabra "SUBSCRIBE", interpreta que ese cliente desea suscribirse a un topic específico. Luego de eso almacena su dirección IP y el nombre del tema en una lista. Si en cambio recibe un mensaje normal, lo toma como una publicacion corriente y lo reenvía a todos los suscriptores cuyos temas coincidan con el contenido del mensaje. Finalmente, el proceso es sencillo desde el hecho de que no hay garantía de entrega ni de orden en el envio de mensajes.
+    En este caso, evidentemente el broker UDP cumple con la misma funcion que el de TCP, solo que esta vez cambia el protocolo. 
+
+    Al inicio, se definen las librerías necesarias para manejar sockets, direcciones IP, errores y memoria. Luego se establecen algunas constantes, como el puerto del broker (5000), el máximo número de suscriptores (10) y el tamaño del buffer (1024 bytes), que sirven para controlar los límites del programa. Después se crea una estructura llamada subscriber, que almacena la dirección IP del suscriptor y el nombre del tema al que está suscrito. De esta forma, el broker puede saber a qué dirección debe reenviar los mensajes que correspondan a ese tema.
+
+    Posteriormente, el programa crea un socket UDP, lo configura para reutilizar el puerto y lo asocia (con bind) a la dirección local del broker. Una vez hecho esto, el broker queda escuchando a los mensajes que lleguen a ese puerto y muestra un mensaje en pantalla confirmando que esta funcionando. A partir de ahí, el broker entra en un ciclo infinito donde espera datagramas. Cuando recibe uno, revisa si el mensaje comienza con la palabra "SUBSCRIBE". En caso de ser así, lo interpreta como una solicitud de suscripción y guarda la dirección del cliente junto con el tema que pidió. Si el mensaje no es una suscripción, el broker lo trata como una publicación y lo reenvía a todos los suscriptores cuyo tema aparezca dentro del mensaje.
 
 - Subscriber UDP
 
-    Al igual que fue establecido antes, el subscriber es aquel que recibe todos los mensajes que son enviados dentro del sistema. Precisamente, para la gracia del ejercicio, su funcion es suscribirse a un topic específico y asi poder recibir los mensajes que el broker reenvie sobre ese tema. En ejecución, el programa crea un socket y lo asocia a un puerto local disponible. Esto para posteriormente, configurar la dirección del broker (en este caso con IP 192.168.64.3 y puerto 5000). Como tal, la idea es que el usuario o publisher ingresa el nombre del topic al que desea suscribirse y luego se manda un mensaje al broker con el formato SUBSCRIBE -topic-. De esta manera, el broker registra la dirección del suscriptor junto con el tema indicado.
+    Al igual que fue establecido antes, el subscriber es aquel que recibe todos los mensajes que son enviados dentro del sistema. Precisamente, para la gracia del ejercicio, su funcion es suscribirse a un topic específico y asi poder recibir los mensajes que el broker reenvie sobre ese tema. En ejecución, se incluyen las librerías necesarias para manejar sockets, direcciones IP, entrada y salida estándar, y funciones básicas del sistema. Adicionalmente, se definen constantes como el puerto del broker y el tamaño máximo del buffer (1024 bytes), que son necesarios para almacenar y manejar los mensajes.
 
-    Posteriormente, el programa entra en un bucle en donde utiliza recvfrom() para escuchar los mensajes que el broker le envía. Cada vez que llega un datagrama, lo imprime inmediatament.
+    Dentro del programa, se crea un socket UDP, que permite la comunicación sin conexión(por el protocolo) con el broker. Despues de eso, se configura una dirección local (local_addr) que le permite al subscriber recibir mensajes en cualquier puerto disponible, y se asocia el socket a esa dirección mediante la función bind(). Posteriormente, se prepara la dirección del broker con su IP (en este caso, 192.168.64.3) y el puerto donde está escuchando. El programa luego le pide al usuario que ingrese el topic al que desea suscribirse , y construye un mensaje del tipo “SUBSCRIBE <tema>”, que es enviado al broker usando sendto().
+    
+    Ya finalmente, el programa entra en un bucle en donde utiliza recvfrom() para escuchar los mensajes que el broker le envía. Cada vez que llega un datagrama, lo imprime inmediatament.
 
 
 - Publisher UDP
 
-    Finalmente, cabe decir nuevamente que el publisher envia mensajes hacia el broker, para posteriormente enseñarlos en pantalla al usuario. INicialmente, al ejecutarse, el programa crea un socket UDP y configura la dirección del broker que es con el mismo puerto e IP de antes: 5000 y 192.168.64.3. Una vez conectado (sin establecer sesion debido al protocolo), el publisher entra en ciclo infinito, en el cual el usuario puede escribir cuantos mensajes quiera, para que luego estos se envien hacia el broker usando la funcion sendto().
+    Como ya se ha mencionado en todos los casos anteriores, el programa incluye las llibrerias para anejo de salida y entrada de datos, asi como de memoria y funciones de red. Además de definir el puerto y tamaño del buffer. Dentro del main, se crea un socket, que como ya se sab es el medio por el cual el publisher enviara los datagramas al broker. Luego se configura la estructura broker_addr, que contiene la dirección IP del broker y el puerto donde está escuchando.
+
+    Luego de eso, el programa muestra un mensaje indicando que está listo para enviar información. A partir de ese momento, entra en un ciclo en donde el usuario puede escribir mensajes. Cada uno que el usuario escriba se lee con fgets(), se limpia de saltos de línea y se envía al broker usando la función sendto(). El broker, al recibir estos mensajes, los manda a los suscriptores que estén registrados en el tema correspondiente. 
 
 
     # LIBRERIAS / DIRECTIVAS EMPLEADAS
@@ -55,9 +69,17 @@ y la elaboracion de los codigos que permitieron el correcto desarrollo del labor
 
 # PARA CORRER EL CÓDIGO IMPLEMENTADO
 
-Lo que se llebo a cabo fue el ingreso a máquinas virtuales Linux, las cuales permitieran sin problemas la ejecucion
-de los codigos en conjunto. Se ingreso a un directorio cada grupo dependiendo del protocolo (TCP o UDP), para luego
-compilar cada archivo haciendo uso de "gcc", y luego llevando a cabo las pruebas propuestas dentro del enunciado. 
+    Lo que se llebo a cabo fue el ingreso a máquinas virtuales Linux, las cuales permitieran sin problemas la ejecucion
+    de los codigos en conjunto. Se ingreso a un directorio cada grupo dependiendo del protocolo (TCP o UDP), para luego
+    compilar cada archivo haciendo uso de "gcc", y luego llevando a cabo las pruebas propuestas dentro del enunciado. 
+
+    Para que las pruebas se realicen de forma exitosa, igualmente se tienen que ejecutar los archivos en el siguiente orden: 
+        1. broker
+        2. subscribers
+        3. publishers
+    
+    Esto es asi ya que el broker actua como punto de encuentro o conexion principal, ya que escucha a los puertos y recibe conexiones y mensajes de los demás. Luego los subscribers ya que son clientes receptores, y son encargados de recibir todo aquello que luego sera impreso, y ademas, no tiene sentido enviar algo, sin que algo lo pueda recibir. Precisamente es por eso que los publishers se ejecutan de últimas, ya que son los que emiten la informacion.
+    
 
     SE HACE ENTREGA DE LOS CODIGOS Y ARCHIVOS PCAP DENTRO DEL GIT. IGUALMENTE ESTA EL COMPRIMIDO DENTRO DE LA ENTREGA EN BLOQUE NEON.
 
