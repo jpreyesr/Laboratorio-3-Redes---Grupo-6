@@ -1,4 +1,3 @@
-// subscriber_tcp.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +22,6 @@ int main(int argc, char *argv[]){
 
     if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) die("connect");
 
-    // Enviar rol
     char role = 'S';
     if (send(s, &role, 1, 0) != 1) die("send role");
 

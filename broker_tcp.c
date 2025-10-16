@@ -1,4 +1,3 @@
-// broker_tcp.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,12 +55,10 @@ int main() {
         int ready = select(fdmax + 1, &rfds, NULL, NULL, NULL);
         if (ready < 0) die("select");
 
-        // Nueva conexión
         if (FD_ISSET(server_fd, &rfds)) {
             int cfd = accept(server_fd, NULL, NULL);
             if (cfd < 0) { perror("accept"); continue; }
 
-            // Busca un hueco
             int idx = -1;
             for (i = 0; i < MAX_CLIENTS; ++i) if (client_fd[i] == -1) { idx = i; break; }
             if (idx == -1) {
@@ -70,7 +67,6 @@ int main() {
             } else {
                 client_fd[idx] = cfd;
                 client_role[idx] = ROLE_UNKNOWN;
-                // leer 1 byte de rol
                 char r;
                 ssize_t n = recv(cfd, &r, 1, MSG_WAITALL);
                 if (n <= 0) { close(cfd); client_fd[idx] = -1; continue; }
@@ -85,7 +81,6 @@ int main() {
             }
         }
 
-        // Datos de clientes
         for (i = 0; i < MAX_CLIENTS; ++i) {
             int cfd = client_fd[i];
             if (cfd == -1) continue;
@@ -94,7 +89,6 @@ int main() {
             char buf[BUF_SZ];
             ssize_t n = recv(cfd, buf, sizeof(buf)-1, 0);
             if (n <= 0) {
-                // desconexión
                 printf("[BROKER] Cliente %d desconectado\n", cfd);
                 close(cfd);
                 client_fd[i] = -1;
@@ -112,7 +106,6 @@ int main() {
                     }
                 }
             } else {
-                // Ignorar datos de SUB (no deberían mandar nada)
             }
         }
     }
